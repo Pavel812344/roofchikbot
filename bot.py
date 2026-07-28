@@ -291,26 +291,30 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def show_building(query, context, user_id, edit=True):
+    """Показывает информацию о текущем ЖК"""
     available_buildings = context.user_data['available_buildings']
     current_index = context.user_data['current_index']
+    
     building_id = available_buildings[current_index]
     building = buildings[building_id]
     context.user_data['current_building'] = building_id
+    
     keyboard = [
         [InlineKeyboardButton("✅ Взять ЖК", callback_data='take_building')],
         [InlineKeyboardButton("⏭ Пропустить", callback_data='next_building')],
         [InlineKeyboardButton("📊 В портфолио", callback_data='profile')]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    prim_chance = "70%" if is_moscow_city(building['complex']) else "30%"
+    
     message_text = (
         f"🏢 {building['name']}\n"
         f"📍 Комплекс: {building['complex']}\n"
-        f"💰 Очки: {building['points']}\n"
-        f"⚠️ Шанс быть принятым: {prim_chance}\n\n"
+        f"💰 Очки: {building['points']}\n\n"
         f"Прогресс: {current_index + 1}/{len(available_buildings)}"
     )
+    
     try:
+        # Пытаемся отправить фото с подписью
         with open(building['photo_path'], 'rb') as photo:
             if edit:
                 await query.edit_message_media(
@@ -324,7 +328,15 @@ async def show_building(query, context, user_id, edit=True):
                     reply_markup=reply_markup
                 )
                 await query.message.delete()
+    except FileNotFoundError:
+        # Если фото не найдено — отправляем только текст
+        if edit:
+            await query.edit_message_text(message_text, reply_markup=reply_markup)
+        else:
+            await query.message.reply_text(message_text, reply_markup=reply_markup)
+            await query.message.delete()
     except Exception:
+        # Если любая другая ошибка — тоже текст
         if edit:
             await query.edit_message_text(message_text, reply_markup=reply_markup)
         else:
